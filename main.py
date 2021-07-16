@@ -122,8 +122,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             # message = output_file.getbuffer()
         elif self.path == '/preview':
             # https://stackoverflow.com/a/54001356/3423324
-            file = self.rfile.read(int(self.headers['Content-Length']))
-            doc = fitz.open(stream=file, filetype='application/pdf')
+            doc = fitz.open(stream=pdf_file_bin, filetype='application/pdf')
             page = doc.loadPage(PAGE)
             pix = page.getPixmap()
             print(pix, len(pix.samples))

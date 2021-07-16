@@ -17,11 +17,15 @@
 		Crop
 	</button>
   <div class="button-wrapper">
-			<button class="button" @click="$refs.file.click()">
-				<input type="file" ref="file" @change="loadPDF($event)" accept="application/pdf">
-				Load image
-			</button>
-		</div>
+    <input type="file" ref="file" @change="loadPDF($event)" accept="application/pdf">
+    <button class="button" @click="$refs.file.click()">
+      Load PDF file
+    </button>
+  </div>
+  <div class="input-wrapper">
+    <input type="number" @change="loadPreviewOfPdf()" v-model.number="pdf.page" min="0" :max="pdf.max_page"/>
+    <span>Page {{pdf.page + 1}} of {{ pdf.max_page + 1 }}</span>
+  </div>
 </div>
 
 <script>
@@ -88,8 +92,8 @@ function fromBase64(base64) {
 app = Vue.createApp({
   data() {
     return {
-      page: 0,
       pdf: {
+        page: 0,
         name:  'sample.pdf',
         src: 'data:application/pdf;base64,a4d94b9d56a7===',
         max_page: 0,
@@ -135,7 +139,7 @@ app = Vue.createApp({
 						body: JSON.stringify({
               coordinates,
               image: {width: image.width, height: image.height },
-              pdf: { base64: self.pdf.src, page: self.page }}),
+              pdf: { base64: self.pdf.src, page: self.pdf.page }}),
 						// body: form,
       }).then(function(response) {
         console.log(response);
@@ -160,7 +164,43 @@ app = Vue.createApp({
         downloadFile(byteArray, self.pdf.name, 'application/pdf');
       });
 		},
-		loadPDF(event) {
+    loadPreviewOfPdf: function () {
+      const self = this;
+      const payload = {pdf: {page: self.pdf.page, base64: self.pdf.src}};
+      console.log(payload);
+      // send `POST` request
+      fetch('/preview', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+        .then(function (response) {
+          console.log('>1');
+          console.log(response);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response;
+        })
+        .then(function (response) {
+          console.log('>2');
+          return response.json();
+          /* {
+           "mime": "image/png",
+           "base64": "a4f5fe3290f===",
+           "page": 0,
+           "pages": 2,
+         } */
+        })
+        .then(function (data) {
+          console.log('>3');
+          self.image.src = `data:${data.mime};base64,${data.base64}`
+          console.log('>4');
+          self.pdf.max_page = data.pages - 1;
+          self.pdf.page = data.page;
+          console.log('>5');
+        })
+        .catch(err => console.error(err));
+    }, loadPDF(event) {
 			// Reference to the DOM input element
 			const { files } = event.target;
 			console.log(1)
@@ -178,38 +218,7 @@ app = Vue.createApp({
           console.log('>0')
           self.pdf.src = data;
           self.pdf.name = file.name;
-          const payload = {pdf: { page: self.page, base64: data }};
-          console.log(payload);
-          // send `POST` request
-          fetch('/preview', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
-          .then(function(response) {
-            console.log('>1');
-            console.log(response);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response;
-          })
-          .then(function(response) {
-            console.log('>2');
-            return response.json();
-             /* {
-              "mime": "image/png",
-              "base64": "a4f5fe3290f===",
-              "pages": 2,
-            } */
-          })
-          .then(function (data) {
-            console.log('>3');
-            self.image.src = `data:${data.mime};base64,${data.base64}`
-            console.log('>4');
-            self.pdf.max_page = data.pages - 1;
-            console.log('>5');
-          })
-          .catch(err => console.error(err));
+          self.loadPreviewOfPdf();
         });
       }
 		},

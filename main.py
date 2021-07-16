@@ -137,15 +137,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             pdf_data: str = data['pdf']['base64'].removeprefix('data:application/pdf;base64,')
             pdf_data: bytes = base64.decodebytes(b(pdf_data))
-            with open('/tmp/a.pdf', 'wb') as f:
-                f.write(pdf_data)
-            # end with
             pdf_page = data['pdf']['page']
 
             # https://stackoverflow.com/a/54001356/3423324
             doc: Document = fitz.open(stream=pdf_data, filetype='application/pdf')
+            pdf_pages = doc.page_count
+            pdf_page = min(max(0, pdf_page), pdf_pages - 1)  # make sure it's: 0 ≤ page < n
+
             page = doc.loadPage(pdf_page)
-            pages = doc.page_count
             pix = page.getPixmap()
             print(pix, len(pix.samples))
             mode = None
@@ -160,9 +159,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             content_type = 'application/json'
             base64_data = base64.encodebytes(fake_file.getvalue())
-            print(base64_data)
             base64_data = base64_data.replace(b'\n', b'')
-            message = b'{"mime": "image/' + b(IMG_TYPE) + b'", "base64": "' + base64_data + b'", "pages": ' + b(str(pages)) + b'}'
+            message = (
+                b'{"mime": "image/' + b(IMG_TYPE) + b'", "base64": "' + base64_data + b'", '
+                b'"page": ' + b(str(pdf_page)) + b', "pages": ' + b(str(pdf_pages)) + b'}'
+            )
             fake_file.close()
         else:
             if not HTML:

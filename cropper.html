@@ -39,8 +39,10 @@
    margin-left: 0;
  }
  .button.minus,
- .button.plus {
+ .button.plus,
+ .button.select {
    background-color: #ffb642;
+   font-size: 18px;
  }
  .button.disabled {
    background-color: #708090;
@@ -49,6 +51,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  .button.select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 0;
+
+    margin-left: 0;
+    margin-right: 0;
   }
 </style>
 
@@ -63,7 +74,7 @@
     <div>
       Page
       <button class="button minus" @click="pageTurn(-1)">-</button>
-      <select v-model="pdf.page" @change="loadPreviewOfPdf()">
+      <select class="button select" v-model="pdf.page" @change="loadPreviewOfPdf()">
         <option v-for="i in pdf.max_page + 1" :value="i - 1" :key="i - 1">{{ i }}</option>
       </select>
       <button class="button plus" @click="pageTurn(+1)">+</button>
@@ -93,6 +104,12 @@
 	  </button>
     <button v-else class="button disabled" disabled="disabled" @click="crop" style="width: 100%">
 		  Crop
+	  </button>
+  </div>
+  <br v-for="_ in 40"/>
+  <div class="button-wrapper fullwidth-button">
+    <button class="button" @click="document.location.href='https://flutterb.at/easteregg';">
+		  Easter Egg
 	  </button>
   </div>
 </div>
@@ -234,11 +251,16 @@ app = Vue.createApp({
       });
 		},
     pageTurn: function (offset) {
-      old_page = this.pdf.page
-      this.pdf.page = Math.max(Math.min(pdf.page + offset, pdf.max_page - 1), 0)
-      if (old_page != this.pdf.page) {
-        loadPreviewOfPdf();
+      const new_page = this.pdf.page + offset
+      console.log('changing page', this.pdf.page, offset, new_page, this.pdf.max_page)
+      if (new_page < 0) {
+        return;
       }
+      if (new_page > this.pdf.max_page) {
+        return;
+      }
+      this.pdf.page = new_page;
+      this.loadPreviewOfPdf();
     },
     loadPreviewOfPdf: function () {
       const self = this;

@@ -73,18 +73,26 @@ function getBase64(file) {
   });
 }
 
+function fromBase64(base64) {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return byteArray;
+  }
 </script>
-
 
 <script>
 app = Vue.createApp({
   data() {
     return {
       page: 0,
-      max_page: 0,
       pdf: {
         name:  'sample.pdf',
         src: 'data:application/pdf;base64,a4d94b9d56a7===',
+        max_page: 0,
       },
       image: {
         src: '',
@@ -145,12 +153,7 @@ app = Vue.createApp({
       }).then(function(data) {
         console.log('3');
         console.log(data);
-        const byteCharacters = atob(data.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
+        const byteArray = fromBase64(data.base64);
         // const blob = new Blob([byteArray], {type: contentType});
         // let objectURL = URL.createObjectURL(blob);
         // myImage.src = objectURL;
@@ -172,30 +175,41 @@ app = Vue.createApp({
         // base64 encode it
         const self = this;
         getBase64(file).then(function (data) {
-          console.log(2)
+          console.log('>0')
           self.pdf.src = data;
           self.pdf.name = file.name;
-          payload = {pdf: { page: self.page, base64: data }};
+          const payload = {pdf: { page: self.page, base64: data }};
           console.log(payload);
           // send `POST` request
           fetch('/preview', {
             method: 'POST',
             body: JSON.stringify(payload),
           })
-            .then(res => {
-              console.log(3, res)
-              return res
-            })
-            .then(async res => ({
-              // https://gist.github.com/devloco/5f779216c988438777b76e7db113d05c#file-download-pdf-js-L29-L32
-              filename: file.name,
-              blob: await res.blob()
-            }))
-            .then(image_data => image_data.blob)
-            .then(image_blob => URL.createObjectURL(image_blob))
-            .then(src_ified_image => self.image.src = src_ified_image)
-            .catch(err => console.error(err))
-          ;
+          .then(function(response) {
+            console.log('>1');
+            console.log(response);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response;
+          })
+          .then(function(response) {
+            console.log('>2');
+            return response.json();
+             /* {
+              "mime": "image/png",
+              "base64": "a4f5fe3290f===",
+              "pages": 2,
+            } */
+          })
+          .then(function (data) {
+            console.log('>3');
+            self.image.src = `data:${data.mime};base64,${data.base64}`
+            console.log('>4');
+            self.pdf.max_page = data.pages - 1;
+            console.log('>5');
+          })
+          .catch(err => console.error(err));
         });
       }
 		},

@@ -7,24 +7,93 @@
 <script src="https://unpkg.com/vue-advanced-cropper@^2.0.0"></script>
 <link rel="stylesheet" href="https://unpkg.com/vue-advanced-cropper@^2.0.0/dist/style.css" />
 
+<style>
+  .button {
+    user-select: none;
+    -webkit-user-select: none;
+    border: none;
+    outline: solid transparent;
+    color: white;
+    font-size: 16px;
+    padding: 10px 20px;
+    background: #2ecfff;
+    cursor: pointer;
+    transition: background 0.5s;
+    margin: 0 16px;
+  }
+  .button:hover,
+  .button:focus {
+			background: #1aff80;
+  }
+	.button	input {
+			display: none;
+  }
+  .button-wrapper {
+     margin: 5px 0;
+  }
+ .fullwidth-button.button-wrapper {
+   width: 100%;
+ }
+ .fullwidth-button .button {
+   width: 100%;
+   margin-left: 0;
+ }
+ .button.minus,
+ .button.plus {
+   background-color: #ffb642;
+ }
+ .button.disabled {
+   background-color: #708090;
+ }
+  .centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+
 <div id="app">
+  <div class="button-wrapper fullwidth-button">
+    <button class="button" @click="$refs.file.click()">
+      Load PDF file
+      <input type="file" ref="file" @change="loadPDF($event)" accept="application/pdf" />
+    </button>
+  </div>
+  <div class="button-wrapper centered">
+    <div>
+      Page
+      <button class="button minus" @click="pageTurn(-1)">-</button>
+      <select v-model="pdf.page" @change="loadPreviewOfPdf()">
+        <option v-for="i in pdf.max_page + 1" :value="i - 1" :key="i - 1">{{ i }}</option>
+      </select>
+      <button class="button plus" @click="pageTurn(+1)">+</button>
+      of
+      {{ pdf.max_page + 1 }}
+    </div>
+  </div>
   <cropper
     :src="image.src"
     @change="change"
+    :resizeImage="{ touch: true, wheel: false, adjustStencil: true }"
+    :auto-zoom="true"
+    :defaultSize="({ imageSize, visibleArea }) => {
+      return {
+        width: (visibleArea || imageSize).width,
+        height: (visibleArea || imageSize).height,
+      }
+    }"
     ref="cropper"
   ></cropper>
-  <button @click="crop">
-		Crop
-	</button>
-  <div class="button-wrapper">
-    <input type="file" ref="file" @change="loadPDF($event)" accept="application/pdf">
-    <button class="button" @click="$refs.file.click()">
-      Load PDF file
-    </button>
+  <div v-if="!image.src">
+    No pdf loaded yet
   </div>
-  <div class="input-wrapper">
-    <input type="number" @change="loadPreviewOfPdf()" v-model.number="pdf.page" min="0" :max="pdf.max_page"/>
-    <span>Page {{pdf.page + 1}} of {{ pdf.max_page + 1 }}</span>
+  <div class="button-wrapper fullwidth-button">
+    <button v-if="image.src" class="button" @click="crop" style="width: 100%">
+		  Crop
+	  </button>
+    <button v-else class="button disabled" disabled="disabled" @click="crop" style="width: 100%">
+		  Crop
+	  </button>
   </div>
 </div>
 
@@ -164,6 +233,13 @@ app = Vue.createApp({
         downloadFile(byteArray, self.pdf.name, 'application/pdf');
       });
 		},
+    pageTurn: function (offset) {
+      old_page = this.pdf.page
+      this.pdf.page = Math.max(Math.min(pdf.page + offset, pdf.max_page - 1), 0)
+      if (old_page != this.pdf.page) {
+        loadPreviewOfPdf();
+      }
+    },
     loadPreviewOfPdf: function () {
       const self = this;
       const payload = {pdf: {page: self.pdf.page, base64: self.pdf.src}};

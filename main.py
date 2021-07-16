@@ -6,27 +6,20 @@ from PIL import Image
 from io import BytesIO
 from fitz import fitz  # PyMuPDF
 
-PAGE = 1
 
-PDF_BASE64file = BytesIO()
-with open('sample.pdf', 'br') as f:
-    base64.encode(f, PDF_BASE64file)
-# end if
-# PDF_BASE64 = b''
-PDF_BASE64 = PDF_BASE64file.getvalue()
-
-pdf_file_bin = BytesIO(base64.decodebytes(PDF_BASE64))
-pdf_file_bin.seek(0)
+HTML = """
+""".strip()
 
 
 # https://stackoverflow.com/q/42733539/3423324#convert-pdf-page-to-image-with-pypdf2-and-bytesio
 # Open PDF Source
 
-
-
-
-with open('cropper.html') as f:
-    html = f.read()
+if not HTML:
+    with open('cropper.html') as f:
+        html = f.read()
+    # end with
+else:
+    html = HTML
 # end if
 
 
@@ -59,9 +52,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "image": {
                     "width": 612,
                     "height": 866
-                }
+                },
+                "pdf": {
+                    "page": 0,
+                    "base64": "a4e45f4a245===",
+                },
             }
             data = json.loads(self.data_string)
+
+            pdf_data: str = data['pdf']['base64'].removeprefix('data:application/pdf;base64,')
+            pdf_data: bytes = base64.decodebytes(pdf_data.encode())
+            pdf_page = data['pdf']['page']
 
             img_w, img_h = data['image']['width'],  data['image']['height']
             select_w, select_h = data['coordinates']['width'],  data['coordinates']['height']
@@ -72,14 +73,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             percent_l = select_l / img_w
             percent_t = select_t / img_h
 
-            pdf_file_bin.seek(0)
-            pdf_file = PdfFileReader(pdf_file_bin)
-            page = pdf_file.getPage(PAGE)
+            fake_pdf_file = BytesIO(pdf_data)
+            pdf_file = PdfFileReader(fake_pdf_file)
+            page = pdf_file.getPage(pdf_page)
             print(page.cropBox.getUpperLeft())
             print(page.cropBox.getUpperRight())
             print(page.cropBox.getLowerLeft())
             print(page.cropBox.getLowerRight())
-            print(data)
+            # print(data)
 
             pdf_w, pdf_h = page.cropBox.getWidth(), page.cropBox.getHeight()
             pdf_l, pdf_t = page.cropBox.getUpperLeft()
@@ -117,13 +118,31 @@ class RequestHandler(BaseHTTPRequestHandler):
             base64_data = base64.encodebytes(output_file.getvalue())
             base64_data = base64_data.replace(b'\n', b'')
             message = b'{"filename": "a.pdf", "base64": "' + base64_data + b'"}'
+            fake_pdf_file.close()
+            output_file.close()
 
             # content_type = 'application/pdf'
             # message = output_file.getbuffer()
         elif self.path == '/preview':
+            self.data_string = self.rfile.read(int(self.headers['Content-Length']))
+            data = {
+                "pdf": {
+                    "page": 0,
+                    "base64": "a4e45f4a245===",
+                },
+            }
+            data = json.loads(self.data_string)
+
+            pdf_data: str = data['pdf']['base64'].removeprefix('data:application/pdf;base64,')
+            pdf_data: bytes = base64.decodebytes(pdf_data.encode())
+            with open('/tmp/a.pdf', 'wb') as f:
+                f.write(pdf_data)
+            # end with
+            pdf_page = data['pdf']['page']
+
             # https://stackoverflow.com/a/54001356/3423324
-            doc = fitz.open(stream=pdf_file_bin, filetype='application/pdf')
-            page = doc.loadPage(PAGE)
+            doc = fitz.open(stream=pdf_data, filetype='application/pdf')
+            page = doc.loadPage(pdf_page)
             pix = page.getPixmap()
             print(pix, len(pix.samples))
             mode = None
@@ -139,8 +158,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             content_type = 'image/png'
             message = fake_file.getvalue()
         else:
-            with open('cropper.html') as f:
-                html = f.read()
+            if not HTML:
+                with open('cropper.html') as f:
+                    html = f.read()
+                # end with
+            else:
+                html = HTML
             # end if
 
             content_type = 'text/html'

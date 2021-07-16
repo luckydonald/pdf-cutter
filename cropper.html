@@ -9,13 +9,19 @@
 
 <div id="app">
   <cropper
-    :src="img"
+    :src="image.src"
     @change="change"
     ref="cropper"
   ></cropper>
   <button @click="crop">
 		Crop
 	</button>
+  <div class="button-wrapper">
+			<button class="button" @click="$refs.file.click()">
+				<input type="file" ref="file" @change="loadPDF($event)" accept="application/pdf">
+				Load image
+			</button>
+		</div>
 </div>
 
 <script>
@@ -56,24 +62,36 @@
   }, 100);
 }
 
+function getBase64(file) {
+  console.log('getBase64', file)
+  return new Promise((resolve, reject) => {
+    console.log('getBase64.Promise', file)
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+}
+
 </script>
 
 
 <script>
 app = Vue.createApp({
   data() {
-    const img_url = '/preview';
-    const self = this;
-    const img = new Image();
-    img.src = img_url;
-    img.onload = function() {
-      document.body.appendChild(img); // You can get the image ratio without inserting the image in body
-      self.image_sizes = {width: img.width, height: img.height};
-      document.body.removeChild(img);
-   }
     return {
-      img: img_url,
-      image: {width: 0, height: 0},
+      page: 0,
+      max_page: 0,
+      pdf: {
+        name:  'sample.pdf',
+        src: 'data:application/pdf;base64,a4d94b9d56a7===',
+      },
+      image: {
+        src: '',
+        mime: '',
+        width: 0,
+        height: 0
+      },
       coordinates: {
 				width: 0,
 				height: 0,
@@ -96,17 +114,20 @@ app = Vue.createApp({
 			// as src for <img/> to preview result
 			// this.image = canvas.toDataURL();
 			// upload
+      const result = this.$refs.cropper.getResult();
+      console.log(result);
+      const self = this;
       const {
-	      coordinates, imageTransforms, visibleArea, canvas
-      } = this.$refs.cropper.getResult();
-      console.log({
-	      coordinates, imageTransforms, visibleArea, canvas
-      });
-      const form = new FormData();
+	      coordinates, image
+      } = result;
+      // const form = new FormData();
       // form.append('coordinates', this.coordinates);
       fetch('/crop', {
 						method: 'POST',
-						body: JSON.stringify({ coordinates: this.coordinates, image: this.image_sizes }),
+						body: JSON.stringify({
+              coordinates,
+              image: {width: image.width, height: image.height },
+              pdf: { base64: self.pdf.src, page: self.page }}),
 						// body: form,
       }).then(function(response) {
         console.log(response);
@@ -133,8 +154,50 @@ app = Vue.createApp({
         // const blob = new Blob([byteArray], {type: contentType});
         // let objectURL = URL.createObjectURL(blob);
         // myImage.src = objectURL;
-        downloadFile(byteArray, data.filename, 'application/pdf');
+        downloadFile(byteArray, self.pdf.name, 'application/pdf');
       });
+		},
+		loadPDF(event) {
+			// Reference to the DOM input element
+			const { files } = event.target;
+			console.log(1)
+			// Ensure that you have a file before attempting to read it
+			if (files && files[0]) {
+        // 1. Revoke the object URL, to allow the garbage collector to destroy the uploaded before file
+        if (this.image.src) {
+          URL.revokeObjectURL(this.image.src)
+        }
+        const file = files[0];
+
+        // base64 encode it
+        const self = this;
+        getBase64(file).then(function (data) {
+          console.log(2)
+          self.pdf.src = data;
+          self.pdf.name = file.name;
+          payload = {pdf: { page: self.page, base64: data }};
+          console.log(payload);
+          // send `POST` request
+          fetch('/preview', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+            .then(res => {
+              console.log(3, res)
+              return res
+            })
+            .then(async res => ({
+              // https://gist.github.com/devloco/5f779216c988438777b76e7db113d05c#file-download-pdf-js-L29-L32
+              filename: file.name,
+              blob: await res.blob()
+            }))
+            .then(image_data => image_data.blob)
+            .then(image_blob => URL.createObjectURL(image_blob))
+            .then(src_ified_image => self.image.src = src_ified_image)
+            .catch(err => console.error(err))
+          ;
+        });
+      }
 		},
   },
   components: {

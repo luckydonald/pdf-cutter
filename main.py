@@ -43,7 +43,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         # Send "Hello World"
         if self.path == '/crop':
-            self.data_string = self.rfile.read(int(self.headers['Content-Length']))
+            data_string = self.rfile.read(int(self.headers['Content-Length']))
             data = {
                 "coordinates": {
                     "width": 490,
@@ -60,7 +60,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "base64": "a4e45f4a245===",
                 },
             }
-            data = json.loads(self.data_string)
+            data = json.loads(data_string)
 
             pdf_data: str = data['pdf']['base64'].removeprefix('data:application/pdf;base64,')
             pdf_data: bytes = base64.decodebytes(pdf_data.encode())
@@ -126,14 +126,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             # content_type = 'application/pdf'
             # message = output_file.getbuffer()
         elif self.path == '/preview':
-            self.data_string = self.rfile.read(int(self.headers['Content-Length']))
+            data_string = self.rfile.read(int(self.headers['Content-Length']))
             data = {
                 "pdf": {
                     "page": 0,
                     "base64": "a4e45f4a245===",
                 },
             }
-            data = json.loads(self.data_string)
+            data = json.loads(data_string)
 
             pdf_data: str = data['pdf']['base64'].removeprefix('data:application/pdf;base64,')
             pdf_data: bytes = base64.decodebytes(b(pdf_data))

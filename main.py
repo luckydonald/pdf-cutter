@@ -1,11 +1,14 @@
 import base64
 import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from PyPDF2 import PdfFileWriter, PdfFileReader
-from PIL import Image
+
 from io import BytesIO
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+# noinspection PyProtectedMember
+from PIL import Image  # Pillow
 from fitz import fitz, Document  # PyMuPDF
-from luckydonaldUtils.encoding import to_binary as b
+from PyPDF2 import PdfFileWriter, PdfFileReader  # PyPDF2
+from luckydonaldUtils.encoding import to_binary as b  # luckydonald-utils
 
 
 HTML = """

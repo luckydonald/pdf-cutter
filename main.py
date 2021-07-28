@@ -16,17 +16,6 @@ HTML = """
 
 IMG_TYPE = 'png'
 
-# https://stackoverflow.com/q/42733539/3423324#convert-pdf-page-to-image-with-pypdf2-and-bytesio
-# Open PDF Source
-
-if not HTML:
-    with open('cropper.html') as f:
-        html = f.read()
-    # end with
-else:
-    html = HTML
-# end if
-
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -38,14 +27,10 @@ class RequestHandler(BaseHTTPRequestHandler):
     # end def
 
     def do_stuff(self):
-        # Send a notification when a request is made
-        # notification = nc.Notification()
-        # notification.message = "Made GET Request"
-        # nc.schedule_notification(notification, 1, False)
-        print('MADE GET')
-
-        # Send "Hello World"
+        # Switch for the path
         if self.path == '/crop':
+            # we got a json with the pdf, the page and coordinates to crop the pdf with.
+            # Let's do that and return a cropped pdf.
             data_string = self.rfile.read(int(self.headers['Content-Length']))
             data = {
                 "coordinates": {
@@ -125,9 +110,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             message = b'{"filename": "a.pdf", "base64": "' + base64_data + b'"}'
             fake_pdf_file.close()
             output_file.close()
-
-            # content_type = 'application/pdf'
-            # message = output_file.getbuffer()
         elif self.path == '/preview':
             data_string = self.rfile.read(int(self.headers['Content-Length']))
             data = {
@@ -142,7 +124,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             pdf_data: bytes = base64.decodebytes(b(pdf_data))
             pdf_page = data['pdf']['page']
 
-            # https://stackoverflow.com/a/54001356/3423324
+            # https://stackoverflow.com/q/42733539/3423324#convert-pdf-page-to-image-with-pypdf2-and-bytesio
+            # https://stackoverflow.com/a/54001356/3423324#how-to-render-a-pypdf-pageobject-page-to-a-pil-image
             doc: Document = fitz.open(stream=pdf_data, filetype='application/pdf')
             pdf_pages = doc.page_count
             pdf_page = min(max(0, pdf_page), pdf_pages - 1)  # make sure it's: 0 ≤ page < n
@@ -197,6 +180,9 @@ def run():
     server = ('', 80)
     httpd = HTTPServer(server, RequestHandler)
     httpd.serve_forever()
+# end def
+
+
 try:
     import pyto_ui as ui
     web_view = ui.WebView()
@@ -210,4 +196,5 @@ try:
     # end if
 except (ImportError, ModuleNotFoundError):
     run()
+# end try
 

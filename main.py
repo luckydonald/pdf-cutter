@@ -191,10 +191,14 @@ try:
     from background import BackgroundTask # For running in background
 
     # Run the server in background
-    with BackgroundTask() as b:
-        run()
-    # end if
+    def selected_run():
+        with BackgroundTask() as b:
+            run()
+        # end if
+    # end def
 except (ImportError, ModuleNotFoundError):
-    run()
+    selected_run = run
 # end try
+
+selected_run()
 

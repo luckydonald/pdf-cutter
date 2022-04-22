@@ -5,6 +5,8 @@ from io import BytesIO
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # noinspection PyProtectedMember
+from typing import Tuple, List, Dict
+
 from PIL import Image  # Pillow
 from fitz import fitz, Document  # PyMuPDF
 from PyPDF2 import PdfFileWriter, PdfFileReader  # PyPDF2
@@ -176,9 +178,89 @@ class RequestHandler(BaseHTTPRequestHandler):
 # end class
 
 
+def get_host_infos(server_address: Tuple[str, int], protocol: str ='http'):
+    host, port = server_address
+
+    def format_host(host: str) -> str:
+        return f'{protocol}://{host}:{port}'
+    # end def
+
+    hosts = []
+    urls = []
+
+    from python_hosts import Hosts, HostsEntry
+    host_list: List[HostsEntry] = [entry for entry in Hosts().entries if entry.entry_type in ['ipv4', 'ipv6']]
+    hosts_lookup: Dict[str, List[str]] = {}  # ip: [hostname, hostname, …]
+    for host in host_list:
+        if host.address not in hosts_lookup:
+            hosts_lookup[host.address] = []
+        # end if
+        for hostname in host.names:
+            if hostname not in hosts_lookup[host.address]:
+                hosts_lookup[host.address].append(hostname)
+            # end if
+        # end if
+    # end for
+
+    import socket
+    host_name = socket.gethostname()
+    host_ip = socket.gethostbyname(host_name)
+    hosts += [host_name, host_ip]
+
+    try:
+        # noinspection PyUnresolvedReferences
+        from urllib.request import urlopen
+    except ImportError:  # pragma: no cover
+        # noinspection PyUnresolvedReferences
+        from urllib2 import urlopen
+    # end try
+    ip = urlopen('https://api.ipify.org').read().decode('utf8')
+    hosts.append(ip)
+
+    from netifaces import interfaces, ifaddresses, AF_INET
+    for iface in interfaces():
+        iface_details = ifaddresses(iface)
+        if AF_INET in iface_details:
+            details = iface_details[AF_INET]
+            for detail in details:  # so far seems to be a single argument, but let's loop to be sure.
+                ip = detail['addr']
+                hosts.append(ip)
+            # end def
+        # end if
+    # end for
+
+    deduplicated_hosts = []
+    for host in hosts:
+        if host not in deduplicated_hosts:
+            deduplicated_hosts.append(host)
+        # end if
+    # end for
+
+    for host in deduplicated_hosts:
+        urls.append(format_host(host))
+        if host in hosts_lookup:
+            for alias in hosts_lookup[host]:
+                urls.append(' ↳ ' + format_host(alias))
+            # end for
+        # end if
+    # end for
+    return urls
+# end def
+
+
+def print_host_infos(server_address: Tuple[str, int]):
+    urls = get_host_infos(server_address)
+    print('Server started, and is reachable at')
+    for url in urls:
+        print(f'{url}')
+    # end for
+# end def
+
+
 def run():
     server = ('', 80)
     httpd = HTTPServer(server, RequestHandler)
+    print_host_infos(server)
     httpd.serve_forever()
 # end def
 

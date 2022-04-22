@@ -2,3 +2,5 @@ PyPDF2==1.26.0
 PyMuPDF==1.18.15
 Pillow==8.3.1
 luckydonald-utils==0.83
+netifaces==0.11.0
+python_hosts==1.0.3
